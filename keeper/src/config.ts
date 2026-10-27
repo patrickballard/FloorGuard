@@ -65,7 +65,7 @@ export interface Config {
   collections: Address[];
   expectedOwner: Address | null;
   /** Overrides for the randomness provider each consumer is expected to use. */
-  expectedRandomness: Partial<Record<"vaultRaffle" | "games" | "ticketRaffle" | "lottery", Address>>;
+  expectedRandomness: Partial<Record<"vault" | "vaultRaffle" | "games" | "ticketRaffle" | "lottery", Address>>;
   vrfWarnSeconds: bigint;
   budgetInBidsWarn: number;
   lowBalanceWei: bigint;
@@ -218,6 +218,7 @@ export function loadConfig(rawEnv: Env = process.env, options: { base?: string; 
 
   const expectedRandomness: Config["expectedRandomness"] = {};
   for (const [name, key] of [
+    ["vault", "KEEPER_EXPECTED_RANDOMNESS_VAULT"],
     ["vaultRaffle", "KEEPER_EXPECTED_RANDOMNESS_VAULT_RAFFLE"],
     ["games", "KEEPER_EXPECTED_RANDOMNESS_GAMES"],
     ["ticketRaffle", "KEEPER_EXPECTED_RANDOMNESS_TICKET_RAFFLE"],

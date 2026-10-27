@@ -135,6 +135,12 @@ describe("configuration", () => {
     expect(config.deploymentFile).toMatch(/deployments\/31337\.json$/);
   });
 
+  it("reads an expected randomness provider for each consumer, the Vault included", () => {
+    const config = loadConfig({ ...BASE, KEEPER_EXPECTED_RANDOMNESS_VAULT: A(18), KEEPER_EXPECTED_RANDOMNESS_GAMES: A(16) });
+    expect(config.expectedRandomness).toEqual({ vault: A(18), games: A(16) });
+    expect(loadConfig({ ...BASE }).expectedRandomness).toEqual({});
+  });
+
   it("rejects what it cannot use", () => {
     expect(() => loadConfig({})).toThrow(ConfigError);
     expect(() => loadConfig({ KEEPER_RPC_URL: "http://x" })).toThrow(/KEEPER_CHAIN_ID/);
@@ -183,6 +189,13 @@ describe("deployment file", () => {
     expect(d.timelock).toBeNull();
     expect(d.demoCollection).toBe(A(99));
     expect(parseDeployment(full).demoCollection).toBeNull();
+  });
+
+  it("reads the Vault's randomness provider, and accepts deployments made before it had one", () => {
+    expect(parseDeployment({ ...full, vaultRandomness: A(50) }).vaultRandomness).toBe(A(50));
+    expect(parseDeployment(full).vaultRandomness).toBeNull();
+    expect(parseDeployment({ ...full, vaultRandomness: A(0) }).vaultRandomness).toBeNull();
+    expect(() => parseDeployment({ ...full, vaultRandomness: "0x12" })).toThrow(/"vaultRandomness"/);
   });
 
   it("rejects a missing or malformed address, and two targets at one address", () => {

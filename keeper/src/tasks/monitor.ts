@@ -1,6 +1,7 @@
 // Monitoring. Sends nothing. Prints the figures docs/ECONOMICS-REVIEW.md (end of section 1.6) says a
 // deployer must watch, plus the state of the games bankroll, randomness and ownership.
 import { type Address, formatEther, getAddress, isAddressEqual, zeroAddress } from "viem";
+import type { Deployment } from "../chain.ts";
 import { type Ctx, type Head, readerAt } from "../context.ts";
 import { duration, eth } from "../logger.ts";
 import { eventsOf, getLogsChunked, scanFrom } from "../logs.ts";
@@ -219,7 +220,7 @@ export function assessVrf(waiting: Waiting[], now: bigint, warnSeconds: bigint):
 }
 
 export interface ProviderInput {
-  consumer: "vaultRaffle" | "games" | "ticketRaffle" | "lottery";
+  consumer: "vault" | "vaultRaffle" | "games" | "ticketRaffle" | "lottery";
   consumerAddress: Address;
   expected: Address;
   actual: Address;
@@ -365,11 +366,24 @@ const OWNED = [
 ] as const;
 
 const CONSUMERS = [
+  ["vault", "vaultRandomness"],
   ["vaultRaffle", "randomness"],
   ["games", "gamesRandomness"],
   ["ticketRaffle", "ticketRaffleRandomness"],
   ["lottery", "lotteryRandomness"],
 ] as const;
+
+/** Each randomness consumer to check and the provider it should use. A consumer with no expected
+ * provider (the Vault of a deployment made before it had its own unlock draw) is left out. */
+export function expectedProviders(
+  deployment: Deployment,
+  overrides: Partial<Record<ProviderInput["consumer"], Address>>,
+): { consumer: ProviderInput["consumer"]; consumerAddress: Address; expected: Address }[] {
+  return CONSUMERS.flatMap(([consumer, key]) => {
+    const expected = overrides[consumer] ?? deployment[key];
+    return expected ? [{ consumer, consumerAddress: deployment[consumer], expected }] : [];
+  });
+}
 
 export async function runMonitor(ctx: Ctx, head: Head): Promise<TaskReport> {
   const r = readerAt(ctx, head);
@@ -418,7 +432,7 @@ export async function runMonitor(ctx: Ctx, head: Head): Promise<TaskReport> {
   findings.push(...assessVrf(waiting, now, config.vrfWarnSeconds));
 
   const providers = await Promise.all(
-    CONSUMERS.map(async ([consumer, key]): Promise<ProviderInput> => {
+    expectedProviders(deployment, config.expectedRandomness).map(async ({ consumer, consumerAddress, expected }): Promise<ProviderInput> => {
       const actual = await r.read<Address>(consumer, "randomness");
       const [adapterConsumer, adapterCoordinator] = await Promise.all([
         r.tryRead<Address>("vrfAdapter", "consumer", [], actual),
@@ -426,8 +440,8 @@ export async function runMonitor(ctx: Ctx, head: Head): Promise<TaskReport> {
       ]);
       return {
         consumer,
-        consumerAddress: deployment[consumer],
-        expected: config.expectedRandomness[consumer] ?? deployment[key],
+        consumerAddress,
+        expected,
         actual,
         adapterConsumer: adapterConsumer ?? null,
         adapterCoordinator: adapterCoordinator ?? null,

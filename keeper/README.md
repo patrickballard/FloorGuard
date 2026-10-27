@@ -251,9 +251,13 @@ Also:
   the 20% cap, the largest allowed wager and exposure, and whether the contract
   holds at least what it accounts for.
 - **Randomness**: every draw and bet waiting for randomness and for how long;
-  `randomness()` of the four consumers against the expected provider; on a
-  public chain, whether that provider answers like `ChainlinkVRFRandomness` for
-  that consumer (a `MockRandomness` there is an error).
+  `randomness()` of the five consumers (the Vault, the vault raffle, Games,
+  ticket raffles and the lottery) against the expected provider; on a public
+  chain, whether that provider answers like `ChainlinkVRFRandomness` for that
+  consumer (a `MockRandomness` there is an error). The Vault is checked only
+  when the deployment file has `vaultRandomness` or
+  `KEEPER_EXPECTED_RANDOMNESS_VAULT` is set: deployments made before it had its
+  own unlock draw have no such adapter.
 - **Ownership**: `owner()` of thirteen contracts against the expected owner
   and against the last run; pending two-step transfers.
 - Unlocked holdings and auctions at their reserve (a lump of budget is coming),

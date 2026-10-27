@@ -12,10 +12,12 @@ import {
   assessVrf,
   collectionFigures,
   describeCollection,
+  expectedProviders,
   gamesFigures,
   ratio,
   vrfFigures,
 } from "../src/tasks/monitor.ts";
+import type { Deployment } from "../src/chain.ts";
 import { A, DAY, HOUR } from "./helpers.ts";
 
 const NOW = 1_800_000_000n;
@@ -179,6 +181,44 @@ describe("monitor: randomness", () => {
     expect(codes(assessProviders([mock], 1))).toEqual(["error:randomness_provider_not_vrf"]);
     expect(assessProviders([mock], 31337)).toEqual([]); // the mock is expected on a local chain
     expect(codes(assessProviders([provider({ adapterConsumer: A(11) })], 8453))).toEqual(["error:randomness_provider_wrong_consumer"]);
+  });
+
+  describe("which providers are checked", () => {
+    const deployment = {
+      vault: A(4),
+      vaultRaffle: A(7),
+      games: A(8),
+      ticketRaffle: A(9),
+      lottery: A(10),
+      randomness: A(14),
+      gamesRandomness: A(15),
+      ticketRaffleRandomness: A(16),
+      lotteryRandomness: A(17),
+      vaultRandomness: A(18),
+    } as unknown as Deployment;
+    const of = (list: ReturnType<typeof expectedProviders>) => Object.fromEntries(list.map((p) => [p.consumer, p]));
+
+    it("checks the Vault against vaultRandomness from the deployment file, next to the other consumers", () => {
+      const checked = of(expectedProviders(deployment, {}));
+      expect(Object.keys(checked)).toEqual(["vault", "vaultRaffle", "games", "ticketRaffle", "lottery"]);
+      expect(checked.vault).toEqual({ consumer: "vault", consumerAddress: A(4), expected: A(18) });
+      expect(checked.vaultRaffle!.expected).toBe(A(14));
+    });
+
+    it("lets KEEPER_EXPECTED_RANDOMNESS_VAULT override the deployment file", () => {
+      expect(of(expectedProviders(deployment, { vault: A(40) })).vault!.expected).toBe(A(40));
+    });
+
+    it("leaves the Vault out for a deployment made before it had its own provider", () => {
+      const before = { ...deployment, vaultRandomness: null } as Deployment;
+      expect(of(expectedProviders(before, {})).vault).toBeUndefined();
+      expect(of(expectedProviders(before, { vault: A(40) })).vault!.expected).toBe(A(40));
+    });
+
+    it("raises an error when the Vault's provider is not the expected one", () => {
+      const vault = provider({ consumer: "vault", consumerAddress: A(4), expected: A(18), actual: A(14), adapterConsumer: A(7) });
+      expect(codes(assessProviders([vault], 8453))).toEqual(["error:randomness_provider_changed"]);
+    });
   });
 });
 

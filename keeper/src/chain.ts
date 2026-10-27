@@ -86,6 +86,8 @@ type RequiredKey = (typeof REQUIRED_KEYS)[number];
 export type Deployment = Record<RequiredKey, Address> & {
   timelock: Address | null;
   demoCollection: Address | null;
+  /** The Vault's unlock-draw provider; deployments made before the moving lock have none. */
+  vaultRandomness: Address | null;
 };
 
 export function parseDeployment(json: unknown, label = "deployment"): Deployment {
@@ -98,7 +100,7 @@ export function parseDeployment(json: unknown, label = "deployment"): Deployment
     }
     out[key] = getAddress(value);
   }
-  for (const key of ["timelock", "demoCollection"] as const) {
+  for (const key of ["timelock", "demoCollection", "vaultRandomness"] as const) {
     const value = raw[key];
     if (value === undefined || value === zeroAddress) {
       out[key] = null;
